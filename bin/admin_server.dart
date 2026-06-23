@@ -1,10 +1,10 @@
 import 'dart:convert';
+import 'dart:io'; // ✅ Added for Platform.environment
 import 'package:shelf/shelf.dart';
 import 'package:shelf_router/shelf_router.dart';
 import 'package:shelf/shelf_io.dart' as io;
 import 'package:shelf_cors_headers/shelf_cors_headers.dart';
 import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
 
 Future<void> main() async {
   final router = Router();
@@ -32,12 +32,11 @@ Future<Response> sendMagicLinkHandler(Request request) async {
       return Response.badRequest(body: 'Email is required');
     }
 
-    // Retrieve Resend API key from SharedPreferences
-    final prefs = await SharedPreferences.getInstance();
-    final apiKey = prefs.getString('resend_api_key');
+    // ✅ Retrieve Resend API key from Environment Variables (secure & pure Dart)
+    final apiKey = Platform.environment['RESEND_API_KEY'];
 
     if (apiKey == null || apiKey.isEmpty) {
-      return Response.internalServerError(body: 'Resend API key not configured');
+      return Response.internalServerError(body: 'Resend API key not configured in environment');
     }
 
     // Call Resend API
