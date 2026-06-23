@@ -9,5 +9,4 @@ dependencies:
   http: ^1.2.2
   shelf: ^1.4.0
   shelf_router: ^1.1.0
-  shelf_cors_headers: ^0.3.0
   shared_preferences: ^2.3.3
