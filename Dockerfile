@@ -7,4 +7,6 @@ RUN dart pub get
 
 COPY . .
 
+EXPOSE 8080
+
 CMD ["dart", "run", "bin/admin_server.dart"]
