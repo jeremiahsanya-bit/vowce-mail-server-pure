@@ -59,43 +59,41 @@ Future<Response> sendMagicLinkHandler(Request request) async {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
 <body style="margin: 0; padding: 0; background-color: #f4f4f4; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;">
-  <div style="max-width: 600px; margin: 40px auto; background: #ffffff; border-radius: 12px; padding: 40px; box-shadow: 0 4px 20px rgba(0,0,0,0.05);">
+  <div style="max-width: 600px; margin: 40px auto; background: #ffffff; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.05); overflow: hidden;">
     
-    <!-- App Logo / Brand -->
-    <div style="text-align: center; margin-bottom: 30px;">
-      <img src="https://raw.githubusercontent.com/jeremiahsanya-bit/vowce-mail-server-pure/main/vowce_icon.svg" 
-           alt="Vowce" 
-           width="60" 
-           style="display: block; margin: 0 auto; border-radius: 50%; background-color: #000000; padding: 8px;">
+    <!-- Edge-to-edge Black Banner with White Scattered Logos (CSS pattern) -->
+    <div style="width: 100%; height: 120px; background-color: #000000; background-image: url('https://raw.githubusercontent.com/jeremiahsanya-bit/vowce-mail-server-pure/main/vowce_icon.svg'); background-size: 60px 60px; background-repeat: repeat; background-position: 10px 10px; opacity: 0.6;">
     </div>
     
-    <!-- Main Heading -->
-    <h2 style="color: #222222; font-size: 22px; margin-bottom: 16px;">Welcome back to Vowce! 👋</h2>
-    
-    <!-- Body Text -->
-    <p style="color: #555555; font-size: 16px; line-height: 1.6; margin-bottom: 24px;">
-      You're one click away from accessing your account. Click the button below to log in securely:
-    </p>
-    
-    <!-- Magic Button -->
-    <div style="text-align: center; margin: 30px 0;">
-      <a href="https://your-app.com/magic-login?email=$email" 
-         style="background-color: #7B61FF; color: #ffffff; padding: 14px 36px; 
-                border-radius: 8px; text-decoration: none; font-weight: 600; 
-                font-size: 16px; display: inline-block; box-shadow: 0 4px 12px rgba(123, 97, 255, 0.3);">
-        🔐 Log in to Vowce
-      </a>
-    </div>
-    
-    <!-- Footer / Info -->
-    <p style="color: #888888; font-size: 13px; line-height: 1.5; margin-top: 20px; text-align: center;">
-      This link is secure and will expire after one use.<br>
-      If you didn’t request this email, you can safely ignore it.
-    </p>
-    
-    <!-- Footer Line -->
-    <div style="border-top: 1px solid #eeeeee; margin-top: 30px; padding-top: 20px; text-align: center; color: #aaaaaa; font-size: 12px;">
-      &copy; 2026 Vowce &bull; Built with ❤️
+    <div style="padding: 40px;">
+      <!-- Main Heading -->
+      <h2 style="color: #222222; font-size: 22px; margin-bottom: 16px; text-align: center;">Welcome back to Vowce! 👋</h2>
+      
+      <!-- Body Text -->
+      <p style="color: #555555; font-size: 16px; line-height: 1.6; margin-bottom: 24px; text-align: center;">
+        You're one click away from accessing your account. Click the button below to log in securely:
+      </p>
+      
+      <!-- Magic Button -->
+      <div style="text-align: center; margin: 30px 0;">
+        <a href="https://your-app.com/magic-login?email=$email" 
+           style="background-color: #7B61FF; color: #ffffff; padding: 14px 36px; 
+                  border-radius: 8px; text-decoration: none; font-weight: 600; 
+                  font-size: 16px; display: inline-block; box-shadow: 0 4px 12px rgba(123, 97, 255, 0.3);">
+          🔐 Log in to Vowce
+        </a>
+      </div>
+      
+      <!-- Footer / Info -->
+      <p style="color: #888888; font-size: 13px; line-height: 1.5; margin-top: 20px; text-align: center;">
+        This link is secure and will expire after one use.<br>
+        If you didn’t request this email, you can safely ignore it.
+      </p>
+      
+      <!-- Footer Line -->
+      <div style="border-top: 1px solid #eeeeee; margin-top: 30px; padding-top: 20px; text-align: center; color: #aaaaaa; font-size: 12px;">
+        &copy; 2026 Vowce Network &bull; Built with ❤️
+      </div>
     </div>
   </div>
 </body>
