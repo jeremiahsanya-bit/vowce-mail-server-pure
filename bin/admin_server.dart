@@ -61,8 +61,15 @@ Future<Response> sendMagicLinkHandler(Request request) async {
 <body style="margin: 0; padding: 0; background-color: #f4f4f4; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;">
   <div style="max-width: 600px; margin: 40px auto; background: #ffffff; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.05); overflow: hidden;">
     
-    <!-- Edge-to-edge Black Banner with White Scattered Logos (CSS pattern) -->
-    <div style="width: 100%; height: 120px; background-color: #000000; background-image: url('https://raw.githubusercontent.com/jeremiahsanya-bit/vowce-mail-server-pure/main/vowce_icon.svg'); background-size: 60px 60px; background-repeat: repeat; background-position: 10px 10px; opacity: 0.6;">
+    <!-- Black Banner with Logo + Text side by side -->
+    <div style="width: 100%; height: 80px; background-color: #000000; display: flex; align-items: center; padding-left: 30px; gap: 12px;">
+      <img src="https://raw.githubusercontent.com/jeremiahsanya-bit/vowce-mail-server-pure/main/vowce_icon.svg" 
+           alt="Vowce" 
+           width="45" 
+           style="display: block; opacity: 0.9;">
+      <span style="color: #ffffff; font-size: 22px; font-weight: 600; letter-spacing: 0.5px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;">
+        Vowce
+      </span>
     </div>
     
     <div style="padding: 40px;">
