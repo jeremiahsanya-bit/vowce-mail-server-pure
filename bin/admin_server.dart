@@ -61,13 +61,14 @@ Future<Response> sendMagicLinkHandler(Request request) async {
 <body style="margin: 0; padding: 0; background-color: #f4f4f4; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;">
   <div style="max-width: 600px; margin: 40px auto; background: #ffffff; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.05); overflow: hidden;">
     
-    <!-- Black Banner with Logo + Text side by side -->
-    <div style="width: 100%; height: 80px; background-color: #000000; display: flex; align-items: center; padding-left: 30px; gap: 12px;">
+    <!-- Black Banner (fixed logo + text size) -->
+    <div style="width: 100%; height: 70px; background-color: #000000; display: flex; align-items: center; padding-left: 25px; gap: 10px;">
       <img src="https://raw.githubusercontent.com/jeremiahsanya-bit/vowce-mail-server-pure/main/vowce_icon.svg" 
            alt="Vowce" 
-           width="45" 
-           style="display: block; opacity: 0.9;">
-      <span style="color: #ffffff; font-size: 22px; font-weight: 600; letter-spacing: 0.5px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;">
+           width="32" 
+           height="32"
+           style="display: block; object-fit: contain;">
+      <span style="color: #ffffff; font-size: 16px; font-weight: 500; letter-spacing: 0.3px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;">
         Vowce
       </span>
     </div>
@@ -81,12 +82,12 @@ Future<Response> sendMagicLinkHandler(Request request) async {
         You're one click away from accessing your account. Click the button below to log in securely:
       </p>
       
-      <!-- Magic Button -->
+      <!-- Magic Button (Pill/Capsule Shape, Black) -->
       <div style="text-align: center; margin: 30px 0;">
         <a href="https://your-app.com/magic-login?email=$email" 
-           style="background-color: #7B61FF; color: #ffffff; padding: 14px 36px; 
-                  border-radius: 8px; text-decoration: none; font-weight: 600; 
-                  font-size: 16px; display: inline-block; box-shadow: 0 4px 12px rgba(123, 97, 255, 0.3);">
+           style="background-color: #000000; color: #ffffff; padding: 14px 40px; 
+                  border-radius: 50px; text-decoration: none; font-weight: 600; 
+                  font-size: 16px; display: inline-block; border: 1px solid #ffffff;">
           🔐 Log in to Vowce
         </a>
       </div>
