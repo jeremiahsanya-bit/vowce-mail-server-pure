@@ -61,17 +61,29 @@ Future<Response> sendMagicLinkHandler(Request request) async {
 <body style="margin: 0; padding: 0; background-color: #f4f4f4; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;">
   <div style="max-width: 600px; margin: 40px auto; background: #ffffff; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.05); overflow: hidden;">
     
-    <!-- Black Banner: Logo + Text, aligned middle-left -->
-    <div style="width: 100%; height: 70px; background-color: #000000; display: flex; align-items: center; justify-content: flex-start; padding-left: 30px; gap: 12px;">
-      <img src="https://raw.githubusercontent.com/jeremiahsanya-bit/vowce-mail-server-pure/main/vowce_icon.svg" 
-           alt="Vowce" 
-           width="32" 
-           height="32" 
-           style="display: block; width: 32px; height: 32px; object-fit: contain;">
-      <span style="color: #ffffff; font-size: 16px; font-weight: 500; letter-spacing: 0.3px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; line-height: 1;">
-        Vowce
-      </span>
-    </div>
+    <!-- Black Banner: Logo + Text, perfectly centered middle-left -->
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #000000; height: 70px;">
+      <tr>
+        <td style="padding-left: 30px; vertical-align: middle;">
+          <table cellpadding="0" cellspacing="0" border="0">
+            <tr>
+              <td style="vertical-align: middle; padding-right: 12px;">
+                <img src="https://raw.githubusercontent.com/jeremiahsanya-bit/vowce-mail-server-pure/main/vowce_icon.svg" 
+                     alt="Vowce" 
+                     width="32" 
+                     height="32" 
+                     style="display: block; width: 32px; height: 32px; object-fit: contain;">
+              </td>
+              <td style="vertical-align: middle;">
+                <span style="color: #ffffff; font-size: 16px; font-weight: 500; letter-spacing: 0.3px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; line-height: 1;">
+                  Vowce
+                </span>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
     
     <div style="padding: 40px;">
       <!-- Main Heading -->
@@ -84,7 +96,7 @@ Future<Response> sendMagicLinkHandler(Request request) async {
       
       <!-- Magic Button (Pill/Capsule Shape, Black) -->
       <div style="text-align: center; margin: 30px 0;">
-        <a href="https://your-app.com/magic-login?email=$email" 
+        <a href="vowce://magic-login?email=$email" 
            style="background-color: #000000; color: #ffffff; padding: 14px 40px; 
                   border-radius: 50px; text-decoration: none; font-weight: 600; 
                   font-size: 16px; display: inline-block; border: 1px solid #ffffff;">
