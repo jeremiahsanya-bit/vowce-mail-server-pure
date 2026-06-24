@@ -1,5 +1,5 @@
 import 'dart:convert';
-import 'dart:io'; // ✅ Added for Platform.environment
+import 'dart:io';
 import 'package:shelf/shelf.dart';
 import 'package:shelf_router/shelf_router.dart';
 import 'package:shelf/shelf_io.dart' as io;
@@ -32,7 +32,7 @@ Future<Response> sendMagicLinkHandler(Request request) async {
       return Response.badRequest(body: 'Email is required');
     }
 
-    // ✅ Retrieve Resend API key from Environment Variables (secure & pure Dart)
+    // Retrieve Resend API key from Environment Variables
     final apiKey = Platform.environment['RESEND_API_KEY'];
 
     if (apiKey == null || apiKey.isEmpty) {
@@ -52,10 +52,52 @@ Future<Response> sendMagicLinkHandler(Request request) async {
         'to': [email],
         'subject': 'Your magic link to log in to Vowce',
         'html': '''
-          <p>Click the link below to log in to Vowce:</p>
-          <p><a href="https://your-app.com/magic-login?email=$email">Log in to Vowce</a></p>
-          <p>If you didn't request this, ignore this email.</p>
-        ''',
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin: 0; padding: 0; background-color: #f4f4f4; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;">
+  <div style="max-width: 600px; margin: 40px auto; background: #ffffff; border-radius: 12px; padding: 40px; box-shadow: 0 4px 20px rgba(0,0,0,0.05);">
+    
+    <!-- App Logo / Brand -->
+    <div style="text-align: center; margin-bottom: 30px;">
+      <h1 style="color: #7B61FF; font-size: 28px; margin: 0; letter-spacing: 1px;">Vowce</h1>
+    </div>
+    
+    <!-- Main Heading -->
+    <h2 style="color: #222222; font-size: 22px; margin-bottom: 16px;">Welcome back to Vowce! 👋</h2>
+    
+    <!-- Body Text -->
+    <p style="color: #555555; font-size: 16px; line-height: 1.6; margin-bottom: 24px;">
+      You're one click away from accessing your account. Click the button below to log in securely:
+    </p>
+    
+    <!-- Magic Button -->
+    <div style="text-align: center; margin: 30px 0;">
+      <a href="https://your-app.com/magic-login?email=$email" 
+         style="background-color: #7B61FF; color: #ffffff; padding: 14px 36px; 
+                border-radius: 8px; text-decoration: none; font-weight: 600; 
+                font-size: 16px; display: inline-block; box-shadow: 0 4px 12px rgba(123, 97, 255, 0.3);">
+        🔐 Log in to Vowce
+      </a>
+    </div>
+    
+    <!-- Footer / Info -->
+    <p style="color: #888888; font-size: 13px; line-height: 1.5; margin-top: 20px; text-align: center;">
+      This link is secure and will expire after one use.<br>
+      If you didn’t request this email, you can safely ignore it.
+    </p>
+    
+    <!-- Footer Line -->
+    <div style="border-top: 1px solid #eeeeee; margin-top: 30px; padding-top: 20px; text-align: center; color: #aaaaaa; font-size: 12px;">
+      &copy; 2026 Vowce &bull; Built with ❤️
+    </div>
+  </div>
+</body>
+</html>
+''',
       }),
     );
 
