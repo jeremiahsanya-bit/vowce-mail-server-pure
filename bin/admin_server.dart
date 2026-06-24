@@ -63,7 +63,10 @@ Future<Response> sendMagicLinkHandler(Request request) async {
     
     <!-- App Logo / Brand -->
     <div style="text-align: center; margin-bottom: 30px;">
-      <h1 style="color: #7B61FF; font-size: 28px; margin: 0; letter-spacing: 1px;">Vowce</h1>
+      <img src="https://raw.githubusercontent.com/jeremiahsanya-bit/vowce-mail-server-pure/main/vowce_icon.svg" 
+           alt="Vowce" 
+           width="60" 
+           style="display: block; margin: 0 auto; border-radius: 50%; background-color: #000000; padding: 8px;">
     </div>
     
     <!-- Main Heading -->
