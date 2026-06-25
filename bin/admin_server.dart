@@ -104,6 +104,11 @@ Future<Response> sendMagicLinkHandler(Request request) async {
         </a>
       </div>
       
+      <!-- Fallback text (NEW) -->
+      <p style="color: #888888; font-size: 12px; text-align: center; margin-top: 10px;">
+        ⚠️ If the app doesn't open, make sure Vowce is installed on your device.
+      </p>
+      
       <!-- Footer / Info -->
       <p style="color: #888888; font-size: 13px; line-height: 1.5; margin-top: 20px; text-align: center;">
         This link is secure and will expire after one use.<br>
