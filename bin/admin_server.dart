@@ -48,7 +48,7 @@ Future<Response> sendMagicLinkHandler(Request request) async {
         'Content-Type': 'application/json',
       },
       body: jsonEncode({
-        'from': 'Vowce <onboarding@resend.dev>', // Change later to your verified domain
+        'from': 'Vowce <jeremiahsanya@gmail.com>', // ✅ Updated to your email
         'to': [email],
         'subject': 'Your magic link to log in to Vowce',
         'html': '''
