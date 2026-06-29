@@ -106,7 +106,7 @@ Future<Response> sendMagicLinkHandler(Request request) async {
       
       <!-- Fallback text (NEW) -->
       <p style="color: #888888; font-size: 12px; text-align: center; margin-top: 10px;">
-        ⚠️ If the app doesn't open, make sure Vowce is installed on your device.
+        ⚠️ If the app doesn't open, make sure VowceApp is installed on your device.
       </p>
       
       <!-- Footer / Info -->
