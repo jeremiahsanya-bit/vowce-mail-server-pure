@@ -48,7 +48,7 @@ Future<Response> sendMagicLinkHandler(Request request) async {
         'Content-Type': 'application/json',
       },
       body: jsonEncode({
-        'from': 'Vowce <onboarding@resend.dev>', // ✅ Updated to your email
+        'from': 'VowceApp <onboarding@resend.dev>', // ✅ Updated to your email
         'to': [email],
         'subject': 'Your magic link to log in to Vowce',
         'html': '''
@@ -69,7 +69,7 @@ Future<Response> sendMagicLinkHandler(Request request) async {
             <tr>
               <td style="vertical-align: middle; padding-right: 12px;">
                 <img src="https://raw.githubusercontent.com/jeremiahsanya-bit/vowce-mail-server-pure/main/vowce_icon.svg" 
-                     alt="Vowce" 
+                     alt="VowceApp" 
                      width="32" 
                      height="32" 
                      style="display: block; width: 32px; height: 32px; object-fit: contain;">
@@ -87,7 +87,7 @@ Future<Response> sendMagicLinkHandler(Request request) async {
     
     <div style="padding: 40px;">
       <!-- Main Heading -->
-      <h2 style="color: #222222; font-size: 22px; margin-bottom: 16px; text-align: center;">Welcome back to Vowce! 👋</h2>
+      <h2 style="color: #222222; font-size: 22px; margin-bottom: 16px; text-align: center;">Welcome back to VowceApp! 👋</h2>
       
       <!-- Body Text -->
       <p style="color: #555555; font-size: 16px; line-height: 1.6; margin-bottom: 24px; text-align: center;">
@@ -100,7 +100,7 @@ Future<Response> sendMagicLinkHandler(Request request) async {
            style="background-color: #000000; color: #ffffff; padding: 14px 40px; 
                   border-radius: 50px; text-decoration: none; font-weight: 600; 
                   font-size: 16px; display: inline-block; border: 1px solid #ffffff;">
-          🔐 Log in to Vowce
+          🔐 Log in to VowceApp
         </a>
       </div>
       
@@ -117,7 +117,7 @@ Future<Response> sendMagicLinkHandler(Request request) async {
       
       <!-- Footer Line -->
       <div style="border-top: 1px solid #eeeeee; margin-top: 30px; padding-top: 20px; text-align: center; color: #aaaaaa; font-size: 12px;">
-        &copy; 2026 Vowce Network &bull; Built with ❤️
+        &copy; 2026 VowceApp Network &bull; Built with ❤️
       </div>
     </div>
   </div>
