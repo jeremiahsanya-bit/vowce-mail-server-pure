@@ -96,12 +96,12 @@ Future<Response> sendMagicLinkHandler(Request request) async {
       
       <!-- Magic Button (Pill/Capsule Shape, Black) -->
       <div style="text-align: center; margin: 30px 0;">
-        <a href="vowce://magic-login?email=$email" 
-           style="background-color: #000000; color: #ffffff; padding: 14px 40px; 
-                  border-radius: 50px; text-decoration: none; font-weight: 600; 
-                  font-size: 16px; display: inline-block; border: 1px solid #ffffff;">
-          🔐 Log in to VowceApp
-        </a>
+        <a href="https://vowceapp.com/magic-login?email=$email" 
+   style="background-color: #000000; color: #ffffff; padding: 14px 40px; 
+          border-radius: 50px; text-decoration: none; font-weight: 600; 
+          font-size: 16px; display: inline-block; border: 1px solid #ffffff;">
+  🔐 Log in to VowceApp
+</a>
       </div>
       
       <!-- Fallback text (NEW) -->
