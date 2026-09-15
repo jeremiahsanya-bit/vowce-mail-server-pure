@@ -5,8 +5,18 @@ import 'package:shelf_router/shelf_router.dart';
 import 'package:shelf/shelf_io.dart' as io;
 import 'package:shelf_cors_headers/shelf_cors_headers.dart';
 import 'package:http/http.dart' as http;
+import 'package:firebase_admin/firebase_admin.dart';
 
 Future<void> main() async {
+  // ✅ Initialize Firebase Admin SDK with the service account secret file
+  FirebaseAdmin.instance.initializeApp(
+    AppOptions(
+      credential: ServiceAccountCredential(
+        '/etc/secrets/firebase-service-account.json',
+      ),
+    ),
+  );
+
   final router = Router();
 
   // Endpoint: POST /send-magic-link
@@ -26,16 +36,33 @@ Future<Response> sendMagicLinkHandler(Request request) async {
     // Parse the JSON body
     final body = await request.readAsString();
     final data = jsonDecode(body);
-    final email = data['email'];
-    final link = data['link'] as String?;   // ✅ NEW
+    final email = data['email'] as String?;
 
     if (email == null || email.isEmpty) {
       return Response.badRequest(body: 'Email is required');
     }
 
-    // ✅ NEW: Require the Firebase-generated sign-in link
-    if (link == null || link.isEmpty) {
-      return Response.badRequest(body: 'Link is required');
+    // ✅ Generate the Firebase sign-in link on the server side
+    final String link;
+    try {
+      link = await FirebaseAdmin.instance
+          .auth()
+          .generateSignInWithEmailLink(
+        email,
+        ActionCodeSettings(
+          url: 'https://vowceapp.com/magic-login?email=$email',
+          handleCodeInApp: true,
+          iOSBundleId: 'com.example.mixture3_app',
+          androidPackageName: 'com.example.mixture3_app',
+          androidInstallApp: true,
+          androidMinimumVersion: '21',
+        ),
+      );
+    } catch (e) {
+      print('❌ Failed to generate sign-in link: $e');
+      return Response.internalServerError(
+        body: 'Failed to generate sign-in link: $e',
+      );
     }
 
     // Retrieve Resend API key from Environment Variables
