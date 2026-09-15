@@ -8,9 +8,10 @@ import 'package:http/http.dart' as http;
 import 'package:firebase_admin/firebase_admin.dart';
 
 Future<void> main() async {
-  // ✅ Initialize Firebase Admin SDK with the service account secret file
-  FirebaseAdmin.instance.initializeApp(
+  // ✅ FIX: Capture the app instance returned by initializeApp
+  final app = FirebaseAdmin.instance.initializeApp(
     AppOptions(
+      // ✅ FIX: The constructor takes a plain String path, not a class method
       credential: ServiceAccountCredential(
         '/etc/secrets/firebase-service-account.json',
       ),
@@ -18,11 +19,8 @@ Future<void> main() async {
   );
 
   final router = Router();
+  router.post('/send-magic-link', (Request request) => sendMagicLinkHandler(request, app));
 
-  // Endpoint: POST /send-magic-link
-  router.post('/send-magic-link', sendMagicLinkHandler);
-
-  // Enable CORS so your mobile app can call this from a different port/device
   final handler = const Pipeline()
       .addMiddleware(corsHeaders())
       .addHandler(router);
@@ -31,9 +29,9 @@ Future<void> main() async {
   print('✅ Admin server running at http://${server.address.host}:${server.port}');
 }
 
-Future<Response> sendMagicLinkHandler(Request request) async {
+// ✅ FIX: Pass the app instance into the handler
+Future<Response> sendMagicLinkHandler(Request request, FirebaseAdmin app) async {
   try {
-    // Parse the JSON body
     final body = await request.readAsString();
     final data = jsonDecode(body);
     final email = data['email'] as String?;
@@ -42,17 +40,16 @@ Future<Response> sendMagicLinkHandler(Request request) async {
       return Response.badRequest(body: 'Email is required');
     }
 
-    // ✅ Generate the Firebase sign-in link on the server side
     final String link;
     try {
-      link = await FirebaseAdmin.instance
-          .auth()
-          .generateSignInWithEmailLink(
+      // ✅ FIX: Call .auth() on the app instance, NOT FirebaseAdmin.instance
+      link = await app.auth().generateSignInWithEmailLink(
         email,
         ActionCodeSettings(
           url: 'https://vowceapp.com/magic-login?email=$email',
           handleCodeInApp: true,
-          iOSBundleId: 'com.example.mixture3_app',
+          // ✅ FIX: The correct parameter name is 'iosBundleId' (lowercase i), not 'iOSBundleId'
+          iosBundleId: 'com.example.mixture3_app',
           androidPackageName: 'com.example.mixture3_app',
           androidInstallApp: true,
           androidMinimumVersion: '21',
@@ -60,9 +57,7 @@ Future<Response> sendMagicLinkHandler(Request request) async {
       );
     } catch (e) {
       print('❌ Failed to generate sign-in link: $e');
-      return Response.internalServerError(
-        body: 'Failed to generate sign-in link: $e',
-      );
+      return Response.internalServerError(body: 'Failed to generate sign-in link: $e');
     }
 
     // Retrieve Resend API key from Environment Variables
