@@ -27,9 +27,15 @@ Future<Response> sendMagicLinkHandler(Request request) async {
     final body = await request.readAsString();
     final data = jsonDecode(body);
     final email = data['email'];
+    final link = data['link'] as String?;   // ✅ NEW
 
     if (email == null || email.isEmpty) {
       return Response.badRequest(body: 'Email is required');
+    }
+
+    // ✅ NEW: Require the Firebase-generated sign-in link
+    if (link == null || link.isEmpty) {
+      return Response.badRequest(body: 'Link is required');
     }
 
     // Retrieve Resend API key from Environment Variables
@@ -48,7 +54,7 @@ Future<Response> sendMagicLinkHandler(Request request) async {
         'Content-Type': 'application/json',
       },
       body: jsonEncode({
-        'from': 'VowceApp <noreply@vowceapp.com>', // ✅ Updated to your email
+        'from': 'VowceApp <noreply@vowceapp.com>',
         'to': [email],
         'subject': 'Your magic link to log in to Vowce',
         'html': '''
@@ -96,15 +102,15 @@ Future<Response> sendMagicLinkHandler(Request request) async {
       
       <!-- Magic Button (Pill/Capsule Shape, Black) -->
       <div style="text-align: center; margin: 30px 0;">
-        <a href="https://vowceapp.com/magic-login?email=$email" 
-   style="background-color: #000000; color: #ffffff; padding: 14px 40px; 
-          border-radius: 50px; text-decoration: none; font-weight: 600; 
-          font-size: 16px; display: inline-block; border: 1px solid #ffffff;">
-  🔐 Log in to VowceApp
-</a>
+        <a href="$link" 
+           style="background-color: #000000; color: #ffffff; padding: 14px 40px; 
+                  border-radius: 50px; text-decoration: none; font-weight: 600; 
+                  font-size: 16px; display: inline-block; border: 1px solid #ffffff;">
+          🔐 Log in to VowceApp
+        </a>
       </div>
       
-      <!-- Fallback text (NEW) -->
+      <!-- Fallback text -->
       <p style="color: #888888; font-size: 12px; text-align: center; margin-top: 10px;">
         ⚠️ If the app doesn't open, make sure VowceApp is installed on your device.
       </p>
@@ -112,7 +118,7 @@ Future<Response> sendMagicLinkHandler(Request request) async {
       <!-- Footer / Info -->
       <p style="color: #888888; font-size: 13px; line-height: 1.5; margin-top: 20px; text-align: center;">
         This link is secure and will expire after one use.<br>
-        If you didn’t request this email, you can safely ignore it.
+        If you didn't request this email, you can safely ignore it.
       </p>
       
       <!-- Footer Line -->
