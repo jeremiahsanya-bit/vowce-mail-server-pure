@@ -1,12 +1,12 @@
-FROM dart:stable
+FROM node:20-alpine
 
 WORKDIR /app
 
-COPY pubspec.yaml pubspec.yaml
-RUN dart pub get
+COPY package*.json ./
+RUN npm install --production
 
 COPY . .
 
 EXPOSE 8080
 
-CMD ["dart", "run", "bin/admin_server.dart"]
+CMD ["node", "server.js"]
