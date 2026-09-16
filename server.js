@@ -92,6 +92,7 @@ app.post('/send-magic-link', async (req, res) => {
         You're one click away from accessing your account. Click the button below to log in securely:
       </p>
       
+      <!-- Magic Button -->
       <div style="text-align: center; margin: 30px 0;">
         <a href="${link}" 
            style="background-color: #000000; color: #ffffff; padding: 14px 40px; 
@@ -100,6 +101,12 @@ app.post('/send-magic-link', async (req, res) => {
           🔐 Log in to VowceApp
         </a>
       </div>
+      
+      <!-- Fallback blue text link -->
+      <p style="text-align: center; font-size: 14px; color: #555555; margin-top: 24px; line-height: 1.6;">
+        Button not working? 
+        <a href="${link}" style="color: #1a73e8; text-decoration: underline;">Click here to log in</a>
+      </p>
       
       <p style="color: #888888; font-size: 12px; text-align: center; margin-top: 10px;">
         ⚠️ If the app doesn't open, make sure VowceApp is installed on your device.
