@@ -282,10 +282,12 @@ app.post('/recover', async (req, res) => {
         return;
       }
 
+      // ✅ FIXED: use ISO string (FieldValue.serverTimestamp() is not
+      // allowed inside an array in Firestore)
       codes[matchIndex] = {
         ...codes[matchIndex],
         used: true,
-        usedAt: admin.firestore.FieldValue.serverTimestamp(),
+        usedAt: new Date().toISOString(),
       };
 
       remaining = codes.filter((c) => c.used !== true).length;
@@ -293,6 +295,7 @@ app.post('/recover', async (req, res) => {
       tx.update(userDoc.ref, {
         recoveryCodes: codes,
         recoveryCodesRemaining: remaining,
+        // Top-level field — serverTimestamp() is fine here
         lastRecoveryCodeUsedAt: admin.firestore.FieldValue.serverTimestamp(),
       });
     });
