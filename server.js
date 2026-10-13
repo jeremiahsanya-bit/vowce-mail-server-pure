@@ -14,7 +14,7 @@ const app = express();
 app.use(express.json());
 
 // ============================================================
-// 1. EXISTING: SEND MAGIC LINK (unchanged)
+// 1. EXISTING: SEND MAGIC LINK (kept for backwards compat)
 // ============================================================
 app.post('/send-magic-link', async (req, res) => {
   const { email } = req.body;
@@ -25,7 +25,6 @@ app.post('/send-magic-link', async (req, res) => {
 
   const cleanEmail = email.trim().toLowerCase();
 
-  // 1. Generate the Firebase sign-in link
   let link;
   try {
     link = await admin.auth().generateSignInWithEmailLink(cleanEmail, {
@@ -45,13 +44,11 @@ app.post('/send-magic-link', async (req, res) => {
     return res.status(500).send('Failed to generate sign-in link: ' + err.message);
   }
 
-  // 2. Read Resend API key
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) {
     return res.status(500).send('Resend API key not configured in environment');
   }
 
-  // 3. Build the HTML email
   const html = `
 <!DOCTYPE html>
 <html>
@@ -61,8 +58,6 @@ app.post('/send-magic-link', async (req, res) => {
 </head>
 <body style="margin: 0; padding: 0; background-color: #f4f4f4; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;">
   <div style="max-width: 600px; margin: 40px auto; background: #ffffff; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.05); overflow: hidden;">
-    
-    <!-- Black Banner -->
     <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #000000; height: 70px;">
       <tr>
         <td style="padding-left: 30px; vertical-align: middle;">
@@ -93,7 +88,6 @@ app.post('/send-magic-link', async (req, res) => {
         You're one click away from accessing your account. Click the button below to log in securely:
       </p>
       
-      <!-- Magic Button -->
       <div style="text-align: center; margin: 30px 0;">
         <a href="${link}" 
            style="background-color: #000000; color: #ffffff; padding: 14px 40px; 
@@ -103,7 +97,6 @@ app.post('/send-magic-link', async (req, res) => {
         </a>
       </div>
       
-      <!-- Fallback blue text link -->
       <p style="text-align: center; font-size: 14px; color: #555555; margin-top: 24px; line-height: 1.6;">
         Button not working? 
         <a href="${link}" style="color: #1a73e8; text-decoration: underline;">Click here to log in</a>
@@ -127,7 +120,6 @@ app.post('/send-magic-link', async (req, res) => {
 </html>
   `.trim();
 
-  // 4. Send via Resend
   try {
     const resendResponse = await fetch('https://api.resend.com/emails', {
       method: 'POST',
@@ -157,17 +149,13 @@ app.post('/send-magic-link', async (req, res) => {
 });
 
 // ============================================================
-// 1b. NEW: SEND 6-DIGIT VERIFICATION CODE
-// ============================================================
-// Replaces the magic-link flow with a plain 6-digit code.
-// Stores the code in Firestore at verificationCodes/{email}
-// with a 15-minute expiry, then emails it via Resend.
+// SHARED CONSTANTS
 // ============================================================
 const CODE_LENGTH = 6;
 const CODE_EXPIRY_MS = 15 * 60 * 1000; // 15 minutes
+const MAX_CODE_ATTEMPTS = 5;
 
 function generateNumericCode(length) {
-  // crypto.randomInt is cryptographically secure
   let code = '';
   for (let i = 0; i < length; i++) {
     code += crypto.randomInt(0, 10).toString();
@@ -175,22 +163,63 @@ function generateNumericCode(length) {
   return code;
 }
 
+// ============================================================
+// 2. SEND 6-DIGIT CODE
+// ============================================================
+// Body: { email, type?, uid? }
+//   type === 'email_change' → stores under pendingEmailChanges,
+//                             requires a valid uid, and verifies
+//                             the new email isn't already taken.
+//   otherwise               → stores under verificationCodes
+//                             and requires the email to exist in Auth.
+// ============================================================
 app.post('/send-code', async (req, res) => {
   try {
-    const { email } = req.body || {};
+    const { email, type, uid } = req.body || {};
 
     if (!email || typeof email !== 'string' || email.trim() === '') {
       return res.status(400).json({ error: 'Email is required' });
     }
 
     const cleanEmail = email.trim().toLowerCase();
+    const isEmailChange = type === 'email_change';
 
-    // ── 1. Confirm the Firebase Auth user exists ──
-    try {
-      await admin.auth().getUserByEmail(cleanEmail);
-    } catch (err) {
-      console.warn('❌ User lookup failed for', cleanEmail, '-', err.code || err.message);
-      return res.status(404).json({ error: 'No account found for this email' });
+    // ── 1. Confirm target ──
+    if (isEmailChange) {
+      if (!uid || typeof uid !== 'string' || uid.trim() === '') {
+        return res.status(400).json({ error: 'uid is required for email changes' });
+      }
+
+      // The user doing the change must exist
+      try {
+        await admin.auth().getUser(uid);
+      } catch (err) {
+        console.warn('❌ User lookup failed for uid', uid, '-', err.code || err.message);
+        return res.status(404).json({ error: 'No account found for this uid' });
+      }
+
+      // The new email must NOT be in use by another account
+      try {
+        const existing = await admin.auth().getUserByEmail(cleanEmail);
+        if (existing.uid !== uid) {
+          return res.status(409).json({
+            error: 'That email is already registered to another account.',
+          });
+        }
+      } catch (lookupErr) {
+        // auth/user-not-found → the email is free, which is what we want
+        if (lookupErr.code !== 'auth/user-not-found') {
+          console.warn('⚠️ Email availability check failed:', lookupErr.code || lookupErr.message);
+          return res.status(500).json({ error: 'Could not verify email availability' });
+        }
+      }
+    } else {
+      try {
+        await admin.auth().getUserByEmail(cleanEmail);
+      } catch (err) {
+        console.warn('❌ User lookup failed for', cleanEmail, '-', err.code || err.message);
+        return res.status(404).json({ error: 'No account found for this email' });
+      }
     }
 
     // ── 2. Generate the code ──
@@ -200,20 +229,28 @@ app.post('/send-code', async (req, res) => {
 
     // ── 3. Store in Firestore ──
     const db = admin.firestore();
-    await db.collection('verificationCodes').doc(cleanEmail).set({
+    const collection = isEmailChange ? 'pendingEmailChanges' : 'verificationCodes';
+
+    const payload = {
       code,
       expiresAt,
       attempts: 0,
       createdAt: new Date(now).toISOString(),
-    });
+    };
+    if (isEmailChange) payload.uid = uid;
 
-    // ── 4. Send the email via Resend ──
+    await db.collection(collection).doc(cleanEmail).set(payload);
+
+    // ── 4. Send email ──
     const apiKey = process.env.RESEND_API_KEY;
     if (!apiKey) {
       return res.status(500).json({ error: 'Resend API key not configured' });
     }
 
     const html = buildCodeEmailHtml(code);
+    const subject = isEmailChange
+      ? 'Confirm your new VowceApp email'
+      : 'Your VowceApp verification code';
 
     const resendResponse = await fetch('https://api.resend.com/emails', {
       method: 'POST',
@@ -224,8 +261,8 @@ app.post('/send-code', async (req, res) => {
       body: JSON.stringify({
         from: 'VowceApp <noreply@vowceapp.com>',
         to: [cleanEmail],
-        subject: 'Your VowceApp verification code',
-        html: html,
+        subject,
+        html,
       }),
     });
 
@@ -235,7 +272,9 @@ app.post('/send-code', async (req, res) => {
       return res.status(500).json({ error: 'Failed to send email' });
     }
 
-    console.log('✅ Code email sent to', cleanEmail);
+    console.log(
+      `✅ ${isEmailChange ? 'Email-change' : 'Verification'} code sent to ${cleanEmail}`
+    );
     return res.status(200).json({ ok: true });
   } catch (err) {
     console.error('❌ /send-code error:', err);
@@ -244,13 +283,8 @@ app.post('/send-code', async (req, res) => {
 });
 
 // ============================================================
-// 1c. NEW: VERIFY 6-DIGIT CODE
+// 3. VERIFY 6-DIGIT CODE (login / verify email)
 // ============================================================
-// Validates the code against Firestore, deletes the doc, and
-// returns a Firebase custom token for signInWithCustomToken().
-// ============================================================
-const MAX_CODE_ATTEMPTS = 5;
-
 app.post('/verify-code', async (req, res) => {
   try {
     const { email, code } = req.body || {};
@@ -278,25 +312,21 @@ app.post('/verify-code', async (req, res) => {
     const expiresAt = data.expiresAt ? new Date(data.expiresAt) : null;
     const attempts = typeof data.attempts === 'number' ? data.attempts : 0;
 
-    // ── Expiry check ──
     if (!expiresAt || isNaN(expiresAt.getTime()) || Date.now() > expiresAt.getTime()) {
       await docRef.delete();
       return res.status(403).json({ error: 'Code expired. Request a new one.' });
     }
 
-    // ── Attempts guard ──
     if (attempts >= MAX_CODE_ATTEMPTS) {
       await docRef.delete();
       return res.status(403).json({ error: 'Too many attempts. Request a new code.' });
     }
 
-    // ── Compare ──
     if (storedCode !== cleanCode) {
       await docRef.update({ attempts: attempts + 1 });
       return res.status(403).json({ error: 'Incorrect code' });
     }
 
-    // ── Success: delete code, mint custom token ──
     await docRef.delete();
 
     const user = await admin.auth().getUserByEmail(cleanEmail);
@@ -311,8 +341,111 @@ app.post('/verify-code', async (req, res) => {
 });
 
 // ============================================================
-// Email template for /send-code — SAME design as magic-link
-// template, with the button block replaced by a big bold code.
+// 4. VERIFY EMAIL CHANGE
+// ============================================================
+// Body: { newEmail, code, uid }
+//   1. Reads pendingEmailChanges/{newEmail}
+//   2. Confirms uid + code + expiry + attempt count
+//   3. Updates Firebase Auth user's email (skips verifyBeforeUpdateEmail)
+//   4. Syncs Firestore users/{uid}.email + emailVerified: true
+// ============================================================
+app.post('/verify-email-change', async (req, res) => {
+  try {
+    const { newEmail, code, uid } = req.body || {};
+
+    if (!newEmail || typeof newEmail !== 'string' || newEmail.trim() === '') {
+      return res.status(400).json({ error: 'New email is required' });
+    }
+    if (!code || typeof code !== 'string' || code.trim() === '') {
+      return res.status(400).json({ error: 'Code is required' });
+    }
+    if (!uid || typeof uid !== 'string' || uid.trim() === '') {
+      return res.status(400).json({ error: 'uid is required' });
+    }
+
+    const cleanEmail = newEmail.trim().toLowerCase();
+    const cleanCode = code.trim();
+
+    const db = admin.firestore();
+    const docRef = db.collection('pendingEmailChanges').doc(cleanEmail);
+    const snapshot = await docRef.get();
+
+    if (!snapshot.exists) {
+      return res.status(403).json({ error: 'No code found. Request a new one.' });
+    }
+
+    const data = snapshot.data() || {};
+    const storedUid = String(data.uid || '');
+    const storedCode = String(data.code || '');
+    const expiresAt = data.expiresAt ? new Date(data.expiresAt) : null;
+    const attempts = typeof data.attempts === 'number' ? data.attempts : 0;
+
+    if (storedUid !== uid) {
+      return res.status(403).json({ error: 'Code does not match this account.' });
+    }
+
+    if (!expiresAt || isNaN(expiresAt.getTime()) || Date.now() > expiresAt.getTime()) {
+      await docRef.delete();
+      return res.status(403).json({ error: 'Code expired. Request a new one.' });
+    }
+
+    if (attempts >= MAX_CODE_ATTEMPTS) {
+      await docRef.delete();
+      return res.status(403).json({ error: 'Too many attempts. Request a new code.' });
+    }
+
+    if (storedCode !== cleanCode) {
+      await docRef.update({ attempts: attempts + 1 });
+      return res.status(403).json({ error: 'Incorrect code' });
+    }
+
+    // ── Update Firebase Auth ──
+    try {
+      await admin.auth().updateUser(uid, { email: cleanEmail });
+    } catch (err) {
+      console.error('❌ Auth email update failed:', err);
+      await docRef.delete();
+      return res.status(500).json({
+        error: 'Failed to update email. Please try again.',
+      });
+    }
+
+    // ── Sync Firestore user doc ──
+    try {
+      const userRef = db.collection('users').doc(uid);
+      await userRef.set(
+        {
+          email: cleanEmail,
+          emailVerified: true,
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        },
+        { merge: true }
+      );
+
+      // Remove pendingEmail if it exists (best-effort)
+      try {
+        await userRef.update({
+          pendingEmail: admin.firestore.FieldValue.delete(),
+        });
+      } catch (_) {
+        // Ignore — field may not exist
+      }
+    } catch (err) {
+      console.error('❌ Firestore sync failed (non-fatal):', err);
+    }
+
+    await docRef.delete();
+
+    console.log('✅ Email changed for uid', uid, '→', cleanEmail);
+    return res.json({ ok: true, email: cleanEmail });
+  } catch (err) {
+    console.error('❌ /verify-email-change error:', err);
+    return res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// ============================================================
+// Email template — same design, code instead of button
 // ============================================================
 function buildCodeEmailHtml(code) {
   return `
@@ -325,7 +458,6 @@ function buildCodeEmailHtml(code) {
 <body style="margin: 0; padding: 0; background-color: #f4f4f4; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;">
   <div style="max-width: 600px; margin: 40px auto; background: #ffffff; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.05); overflow: hidden;">
     
-    <!-- Black Banner -->
     <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #000000; height: 70px;">
       <tr>
         <td style="padding-left: 30px; vertical-align: middle;">
@@ -356,7 +488,6 @@ function buildCodeEmailHtml(code) {
         Here is your one-time verification code. Enter it in the app to log in securely:
       </p>
       
-      <!-- 6-digit code -->
       <div style="text-align: center; margin: 30px 0;">
         <span style="color: #000000; font-size: 42px; font-weight: 900; 
                      letter-spacing: 14px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
@@ -385,7 +516,7 @@ function buildCodeEmailHtml(code) {
 }
 
 // ============================================================
-// 2. EXISTING: ACCOUNT RECOVERY — SIGN IN WITH CODE
+// 5. ACCOUNT RECOVERY — SIGN IN WITH CODE
 // ============================================================
 const rateLimitMap = new Map();
 const MAX_ATTEMPTS = 10;
@@ -413,9 +544,7 @@ app.post('/recover', async (req, res) => {
     const { identifier, codeHash } = req.body || {};
 
     if (!identifier || !codeHash) {
-      return res.status(400).json({
-        error: 'Missing identifier or codeHash',
-      });
+      return res.status(400).json({ error: 'Missing identifier or codeHash' });
     }
 
     const cleanIdentifier = String(identifier).trim().toLowerCase();
@@ -469,9 +598,7 @@ app.post('/recover', async (req, res) => {
       }
 
       const data = freshDoc.data() || {};
-      const codes = Array.isArray(data.recoveryCodes)
-        ? data.recoveryCodes
-        : [];
+      const codes = Array.isArray(data.recoveryCodes) ? data.recoveryCodes : [];
 
       if (codes.length === 0) {
         failedReason = 'No recovery codes set up for this account.';
@@ -481,10 +608,7 @@ app.post('/recover', async (req, res) => {
       let matchIndex = -1;
       for (let i = 0; i < codes.length; i++) {
         const c = codes[i] || {};
-        if (
-          c.used !== true &&
-          String(c.hash || '').toLowerCase() === cleanHash
-        ) {
+        if (c.used !== true && String(c.hash || '').toLowerCase() === cleanHash) {
           matchIndex = i;
           break;
         }
@@ -493,10 +617,7 @@ app.post('/recover', async (req, res) => {
       if (matchIndex === -1) {
         let wasUsed = false;
         for (const c of codes) {
-          if (
-            String(c.hash || '').toLowerCase() === cleanHash &&
-            c.used === true
-          ) {
+          if (String(c.hash || '').toLowerCase() === cleanHash && c.used === true) {
             wasUsed = true;
             break;
           }
@@ -528,11 +649,7 @@ app.post('/recover', async (req, res) => {
 
     const customToken = await admin.auth().createCustomToken(uid);
 
-    return res.json({
-      token: customToken,
-      remaining,
-      uid,
-    });
+    return res.json({ token: customToken, remaining, uid });
   } catch (err) {
     console.error('❌ Recovery error:', err);
     return res.status(500).json({ error: 'Server error. Please try again.' });
@@ -540,7 +657,7 @@ app.post('/recover', async (req, res) => {
 });
 
 // ============================================================
-// 3. EXISTING: ACCOUNT RECOVERY — GENERATE CODES
+// 6. ACCOUNT RECOVERY — GENERATE CODES
 // ============================================================
 app.post('/generate-codes', async (req, res) => {
   try {
