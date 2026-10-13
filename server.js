@@ -1,6 +1,7 @@
 const express = require('express');
 const admin = require('firebase-admin');
 const fetch = require('node-fetch');
+const crypto = require('crypto');
 
 // Initialize Firebase Admin
 admin.initializeApp({
@@ -156,9 +157,236 @@ app.post('/send-magic-link', async (req, res) => {
 });
 
 // ============================================================
-// 2. NEW: ACCOUNT RECOVERY — SIGN IN WITH CODE
+// 1b. NEW: SEND 6-DIGIT VERIFICATION CODE
 // ============================================================
-// Rate limiting (in-memory; resets on server restart)
+// Replaces the magic-link flow with a plain 6-digit code.
+// Stores the code in Firestore at verificationCodes/{email}
+// with a 15-minute expiry, then emails it via Resend.
+// ============================================================
+const CODE_LENGTH = 6;
+const CODE_EXPIRY_MS = 15 * 60 * 1000; // 15 minutes
+
+function generateNumericCode(length) {
+  // crypto.randomInt is cryptographically secure
+  let code = '';
+  for (let i = 0; i < length; i++) {
+    code += crypto.randomInt(0, 10).toString();
+  }
+  return code;
+}
+
+app.post('/send-code', async (req, res) => {
+  try {
+    const { email } = req.body || {};
+
+    if (!email || typeof email !== 'string' || email.trim() === '') {
+      return res.status(400).json({ error: 'Email is required' });
+    }
+
+    const cleanEmail = email.trim().toLowerCase();
+
+    // ── 1. Confirm the Firebase Auth user exists ──
+    try {
+      await admin.auth().getUserByEmail(cleanEmail);
+    } catch (err) {
+      console.warn('❌ User lookup failed for', cleanEmail, '-', err.code || err.message);
+      return res.status(404).json({ error: 'No account found for this email' });
+    }
+
+    // ── 2. Generate the code ──
+    const code = generateNumericCode(CODE_LENGTH);
+    const now = Date.now();
+    const expiresAt = new Date(now + CODE_EXPIRY_MS).toISOString();
+
+    // ── 3. Store in Firestore ──
+    const db = admin.firestore();
+    await db.collection('verificationCodes').doc(cleanEmail).set({
+      code,
+      expiresAt,
+      attempts: 0,
+      createdAt: new Date(now).toISOString(),
+    });
+
+    // ── 4. Send the email via Resend ──
+    const apiKey = process.env.RESEND_API_KEY;
+    if (!apiKey) {
+      return res.status(500).json({ error: 'Resend API key not configured' });
+    }
+
+    const html = buildCodeEmailHtml(code);
+
+    const resendResponse = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from: 'VowceApp <noreply@vowceapp.com>',
+        to: [cleanEmail],
+        subject: 'Your VowceApp verification code',
+        html: html,
+      }),
+    });
+
+    if (resendResponse.status !== 200) {
+      const body = await resendResponse.text();
+      console.error('❌ Resend error:', body);
+      return res.status(500).json({ error: 'Failed to send email' });
+    }
+
+    console.log('✅ Code email sent to', cleanEmail);
+    return res.status(200).json({ ok: true });
+  } catch (err) {
+    console.error('❌ /send-code error:', err);
+    return res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// ============================================================
+// 1c. NEW: VERIFY 6-DIGIT CODE
+// ============================================================
+// Validates the code against Firestore, deletes the doc, and
+// returns a Firebase custom token for signInWithCustomToken().
+// ============================================================
+const MAX_CODE_ATTEMPTS = 5;
+
+app.post('/verify-code', async (req, res) => {
+  try {
+    const { email, code } = req.body || {};
+
+    if (!email || typeof email !== 'string' || email.trim() === '') {
+      return res.status(400).json({ error: 'Email is required' });
+    }
+    if (!code || typeof code !== 'string' || code.trim() === '') {
+      return res.status(400).json({ error: 'Code is required' });
+    }
+
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanCode = code.trim();
+
+    const db = admin.firestore();
+    const docRef = db.collection('verificationCodes').doc(cleanEmail);
+    const snapshot = await docRef.get();
+
+    if (!snapshot.exists) {
+      return res.status(403).json({ error: 'No code found. Request a new one.' });
+    }
+
+    const data = snapshot.data() || {};
+    const storedCode = String(data.code || '');
+    const expiresAt = data.expiresAt ? new Date(data.expiresAt) : null;
+    const attempts = typeof data.attempts === 'number' ? data.attempts : 0;
+
+    // ── Expiry check ──
+    if (!expiresAt || isNaN(expiresAt.getTime()) || Date.now() > expiresAt.getTime()) {
+      await docRef.delete();
+      return res.status(403).json({ error: 'Code expired. Request a new one.' });
+    }
+
+    // ── Attempts guard ──
+    if (attempts >= MAX_CODE_ATTEMPTS) {
+      await docRef.delete();
+      return res.status(403).json({ error: 'Too many attempts. Request a new code.' });
+    }
+
+    // ── Compare ──
+    if (storedCode !== cleanCode) {
+      await docRef.update({ attempts: attempts + 1 });
+      return res.status(403).json({ error: 'Incorrect code' });
+    }
+
+    // ── Success: delete code, mint custom token ──
+    await docRef.delete();
+
+    const user = await admin.auth().getUserByEmail(cleanEmail);
+    const customToken = await admin.auth().createCustomToken(user.uid);
+
+    console.log('✅ Code verified for', cleanEmail, '— token issued');
+    return res.json({ token: customToken });
+  } catch (err) {
+    console.error('❌ /verify-code error:', err);
+    return res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// ============================================================
+// Email template for /send-code — SAME design as magic-link
+// template, with the button block replaced by a big bold code.
+// ============================================================
+function buildCodeEmailHtml(code) {
+  return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin: 0; padding: 0; background-color: #f4f4f4; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;">
+  <div style="max-width: 600px; margin: 40px auto; background: #ffffff; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.05); overflow: hidden;">
+    
+    <!-- Black Banner -->
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #000000; height: 70px;">
+      <tr>
+        <td style="padding-left: 30px; vertical-align: middle;">
+          <table cellpadding="0" cellspacing="0" border="0">
+            <tr>
+              <td style="vertical-align: middle; padding-right: 12px;">
+                <img src="https://raw.githubusercontent.com/jeremiahsanya-bit/vowce-mail-server-pure/main/vowce_icon.svg" 
+                     alt="VowceApp" 
+                     width="32" 
+                     height="32" 
+                     style="display: block; width: 32px; height: 32px; object-fit: contain;">
+              </td>
+              <td style="vertical-align: middle;">
+                <span style="color: #ffffff; font-size: 16px; font-weight: 500; letter-spacing: 0.3px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; line-height: 1;">
+                  Vowce
+                </span>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+    
+    <div style="padding: 40px;">
+      <h2 style="color: #222222; font-size: 22px; margin-bottom: 16px; text-align: center;">Welcome back to VowceApp! 👋</h2>
+      
+      <p style="color: #555555; font-size: 16px; line-height: 1.6; margin-bottom: 24px; text-align: center;">
+        Here is your one-time verification code. Enter it in the app to log in securely:
+      </p>
+      
+      <!-- 6-digit code -->
+      <div style="text-align: center; margin: 30px 0;">
+        <span style="color: #000000; font-size: 42px; font-weight: 900; 
+                     letter-spacing: 14px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+                     display: inline-block; padding-left: 14px;">
+          ${code}
+        </span>
+      </div>
+      
+      <p style="color: #888888; font-size: 12px; text-align: center; margin-top: 10px;">
+        ⚠️ This code expires in 15 minutes.
+      </p>
+      
+      <p style="color: #888888; font-size: 13px; line-height: 1.5; margin-top: 20px; text-align: center;">
+        This code is secure and can only be used once.<br>
+        If you didn't request this email, you can safely ignore it.
+      </p>
+      
+      <div style="border-top: 1px solid #eeeeee; margin-top: 30px; padding-top: 20px; text-align: center; color: #aaaaaa; font-size: 12px;">
+        &copy; 2026 VowceApp Network &bull; Built with ❤️
+      </div>
+    </div>
+  </div>
+</body>
+</html>
+  `.trim();
+}
+
+// ============================================================
+// 2. EXISTING: ACCOUNT RECOVERY — SIGN IN WITH CODE
+// ============================================================
 const rateLimitMap = new Map();
 const MAX_ATTEMPTS = 10;
 const WINDOW_MS = 60 * 60 * 1000; // 1 hour
@@ -193,7 +421,6 @@ app.post('/recover', async (req, res) => {
     const cleanIdentifier = String(identifier).trim().toLowerCase();
     const cleanHash = String(codeHash).trim().toLowerCase();
 
-    // ---- Rate limit ----
     const rl = checkRateLimit(cleanIdentifier);
     if (!rl.allowed) {
       const minutes = Math.ceil(rl.retryAfterMs / 60000);
@@ -204,7 +431,6 @@ app.post('/recover', async (req, res) => {
 
     const db = admin.firestore();
 
-    // ---- Find user by email OR username ----
     let userDoc = null;
 
     const byEmail = await db
@@ -232,7 +458,6 @@ app.post('/recover', async (req, res) => {
 
     const uid = userDoc.id;
 
-    // ---- Atomic: verify + mark used ----
     let remaining = 0;
     let failedReason = null;
 
@@ -282,8 +507,6 @@ app.post('/recover', async (req, res) => {
         return;
       }
 
-      // ✅ FIXED: use ISO string (FieldValue.serverTimestamp() is not
-      // allowed inside an array in Firestore)
       codes[matchIndex] = {
         ...codes[matchIndex],
         used: true,
@@ -295,7 +518,6 @@ app.post('/recover', async (req, res) => {
       tx.update(userDoc.ref, {
         recoveryCodes: codes,
         recoveryCodesRemaining: remaining,
-        // Top-level field — serverTimestamp() is fine here
         lastRecoveryCodeUsedAt: admin.firestore.FieldValue.serverTimestamp(),
       });
     });
@@ -304,7 +526,6 @@ app.post('/recover', async (req, res) => {
       return res.status(401).json({ error: failedReason });
     }
 
-    // ---- Create custom token ----
     const customToken = await admin.auth().createCustomToken(uid);
 
     return res.json({
@@ -319,7 +540,7 @@ app.post('/recover', async (req, res) => {
 });
 
 // ============================================================
-// 3. NEW: ACCOUNT RECOVERY — GENERATE CODES (signed-in user)
+// 3. EXISTING: ACCOUNT RECOVERY — GENERATE CODES
 // ============================================================
 app.post('/generate-codes', async (req, res) => {
   try {
@@ -333,7 +554,6 @@ app.post('/generate-codes', async (req, res) => {
       return res.status(400).json({ error: 'Expected exactly 10 codes' });
     }
 
-    // Verify the user is actually signed in
     const decoded = await admin.auth().verifyIdToken(idToken);
     const uid = decoded.uid;
 
